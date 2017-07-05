@@ -1,6 +1,6 @@
 # z3-clj
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library that exposes the Z3 SMT solver Java API using clojure idioms.
 
 ## Usage
 
