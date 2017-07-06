@@ -6,7 +6,7 @@ A Clojure library that exposes the Z3 SMT solver Java API using clojure idioms.
 
 Install the Z3 jar to your local maven repository with
 
-mvn install:install-file -Dfile=<path-to-jar>/com.microsoft.z3.jar -DgroupId=com.microsoft -DartifactId=z3 -Dversion=4.5.1 -Dpackaging=jar
+mvn install:install-file -Dfile=\<path-to-jar\>/com.microsoft.z3.jar -DgroupId=com.microsoft -DartifactId=z3 -Dversion=4.5.1 -Dpackaging=jar
 
 ## License
 
