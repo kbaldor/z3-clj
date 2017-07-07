@@ -27,6 +27,11 @@
 (defn satisfiable? [status]
   (clojure.core/= status Status/SATISFIABLE))
 
+(defn unsatisfiable? [status]
+  (clojure.core/= status Status/UNSATISFIABLE))
+
+(defn unknown? [status]
+  (clojure.core/= status Status/UNKNOWN))
 ;; TODO: Handle the creation of new Sorts
 
 ;; constants and values
@@ -54,16 +59,59 @@
 (defn + [& arithmetic-expressions]
   (.mkAdd *context* (into-array ArithExpr arithmetic-expressions)))
 
+(defn * [& arithmetic-expressions]
+  (.mkMul *context* (into-array ArithExpr arithmetic-expressions)))
+
 ;; Boolean expressions
 (defn = [lhs rhs]
   (.mkEq *context* lhs rhs))
 
+(defn < [lhs rhs]
+  (.mkLt *context* lhs rhs))
+
+(defn <= [lhs rhs]
+  (.mkLe *context* lhs rhs))
+
+(defn > [lhs rhs]
+  (.mkGt *context* lhs rhs))
+
 (defn >= [lhs rhs]
   (.mkGe *context* lhs rhs))
 
-(defn optimizer [ & boolean-expressions]
+(defn and [& boolean-expressions]
+  (.mkAnd *context* (into-array BoolExpr boolean-expressions)))
+
+(defn or [& boolean-expressions]
+  (.mkOr *context* (into-array BoolExpr boolean-expressions)))
+
+(defn xor [& boolean-expressions]
+  (.mkXor *context* (into-array BoolExpr boolean-expressions)))
+
+(defn not [boolean-expression]
+  (.mkNot *context* boolean-expression))
+
+(defn ite [lhs rhs]
+  (.mkITE *context* lhs rhs))
+
+(defn iff [lhs rhs]
+  (.mkIff *context* lhs rhs))
+
+(defn -> [lhs rhs]
+  (.mkImplies *context* lhs rhs))
+
+(defn check-sat [& constraints]
+  (let [solver (.mkSolver *context*)
+        status (do 
+                   (.add solver (into-array BoolExpr constraints))
+                   (.check solver))]
+    (cond 
+      (satisfiable? status)   (.getModel solver)
+      (unsatisfiable? status) (vec (.getUnsatCore solver))
+      (unknown? status)       (.getUnknownReason solver))))
+
+(defn optimizer [ & constraints]
   (let [opt (.mkOptimize *context*)]
-    (.Add opt (into-array BoolExpr boolean-expressions))
+    (.Add opt (into-array BoolExpr constraints))
     opt))
 
 (defn maximize [optimizer arithmetic-expression]
