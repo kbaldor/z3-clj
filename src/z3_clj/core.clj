@@ -54,13 +54,31 @@
   ([identifier size]
    (.mkBVConst *context* identifier size)))
 
+(defn get-sort [arg]
+  (cond
+   (clojure.core/= arg int) (.getIntSort *context*)
+   (clojure.core/= arg real) (.getRealSort *context*)
+    :else "unknown sort"))
+
 ;; Arithmetic expressions
 
 (defn + [& arithmetic-expressions]
   (.mkAdd *context* (into-array ArithExpr arithmetic-expressions)))
 
+(defn - [& args]
+  (println "found" (count args) "arguments")
+  (if (clojure.core/= 1 (count args)) 
+    (.mkUnaryMinux *context* (first args))
+    (.mkSub *context* (into-array ArithExpr args))))
+
+(defn - [& arithmetic-expressions]
+  (.mkSub *context* (into-array ArithExpr arithmetic-expressions)))
+
 (defn * [& arithmetic-expressions]
   (.mkMul *context* (into-array ArithExpr arithmetic-expressions)))
+
+(defn / [lhs rhs]
+  (.mkDiv *context* lhs rhs))
 
 ;; Boolean expressions
 (defn = [lhs rhs]

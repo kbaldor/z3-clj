@@ -5,15 +5,19 @@
 
 (println 
     (with-context [:model :true]
-             (let [x (real "x")
-                   y (real "y")
-                   opt  (optimizer (= (+ x y) (real 10))
+             (let [x (int "x")
+                   y (int "y")
+                   opt  (optimizer (= (- x y) (real 10))
+                                   (< x (real 100))
+                                   (< y (real 100))
                                    (>= x (real 0))
                                    (>= y (real 0)))
-                   mx   (maximize opt (* x (real 10)))
+                   mx   (maximize opt (/ x (real 10)))
                    my   (maximize opt y)
                    status (check opt)]
+               (println (get-sort int))
                (println mx my)
+               (println (map #(.getValue %) [mx my]))
                (if (satisfiable? status)
                  (map #(clojure.core/-> % .getValue .getInt64) [mx my])
                  'unsatisfiable))))
