@@ -16,13 +16,33 @@
    (keyword? thing) (name thing)
    :else            (str thing)))
 
+(defn- interleaved->map [params]
+  (into {} (map (partial apply vector) (partition 2 params))))
+
 (defmacro with-context [params & body]
   (let [params (into [] (map ->string params))]
-    `(let [new-context# (Context. (into {} (map (partial apply vector) (partition 2 ~params))))
+    `(let [new-context# (Context. ~(interleaved->map params))
            result#      (binding [*context* new-context#] ~@body)
            result#      (if (sequential? result#) (doall result#) result#)]
            (.close new-context#)
            result#)))
+
+(defn get-sort [arg]
+  (condp clojure.core/= arg
+    'int    (.getIntSort    *context*)
+    'real   (.getRealSort   *context*)
+    'bool   (.getBoolSort   *context*)
+    'string (.getStringSort *context*)
+    "unknown sort"))
+
+(defn make-const [name sort]
+  (.mkConst *context* name sort))
+
+(defmacro with-vars [decls & body]
+  (let [decls 
+        (into [] (reduce concat (for [[sort name] (partition 2 decls)]
+                                  [name `(make-const ~(->string name) (get-sort '~sort))] )))]
+    `(let ~decls ~@body)))
 
 (defn satisfiable? [status]
   (clojure.core/= status Status/SATISFIABLE))
@@ -54,11 +74,12 @@
   ([identifier size]
    (.mkBVConst *context* identifier size)))
 
-(defn get-sort [arg]
-  (cond
-   (clojure.core/= arg int) (.getIntSort *context*)
-   (clojure.core/= arg real) (.getRealSort *context*)
-    :else "unknown sort"))
+(defn- sequence? [thing]
+  (or (list? thing) (vector? thing)))
+
+(defn declare-list-type [name & types])
+
+
 
 ;; Arithmetic expressions
 
