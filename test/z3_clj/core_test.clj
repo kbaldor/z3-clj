@@ -4,7 +4,7 @@
 
 (println 
     (with-context [:model :true]
-      (with-vars [int x
+      (with-decls [int x
                   int y]
         (let
             [opt  (optimizer (= (- x y) (real 10))
@@ -20,18 +20,35 @@
             'unsatisfiable)))))
 
 (with-context [:model :true]
-  (with-vars [int x 
+  (with-decls [int x 
               int y]
     (println (check-sat (and (< x (int 10))
                              (< y (int 5))
                              (-> (< x (int 2))
                                  (> y (int 10))))))))
 
+(with-context [:model :true]
+  (with-decls [(func [int] int) f
+               int a
+               int b]
+    (println (check-sat (> a (int 20))
+                (> b a)
+                (= (apply f (int 10)) (int 1))))))
+
+(with-context [:model :true]
+  (with-decls [(func [int] int) f
+               int x
+               int y]
+    (println (check-sat
+      (= (apply f (apply f x)) (apply f x))
+      (= (apply f x) y)
+      (not (= x y))))))
+
 (deftest opt-test
   (testing "Optimizer"
     (is (clojure.core/= [10 0]
            (with-context [:model :true]
-             (with-vars [int x
+             (with-decls [int x
                          int y]
                (let [opt  (optimizer (= (+ x y) (int 10))
                                      (>= x (int 0))

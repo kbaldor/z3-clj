@@ -1,11 +1,13 @@
 (ns z3-clj.core
   (:refer-clojure :exclude [+ = >= int])
-  (:import [com.microsoft.z3 Version Context ArithExpr BoolExpr
+  (:import [com.microsoft.z3 Version Context Expr ArithExpr BoolExpr Sort
             Status])
   (:require [clojure.reflect :as r])
   (:use [clojure.pprint :only [pprint print-table]]))
 
 (def ^:dynamic *context* nil)
+
+(defn- third [seqable] (nth seqable 2))
 
 (defn context [& args] 
   (Context. (into {} (partition 2 args))))
@@ -17,7 +19,7 @@
    :else            (str thing)))
 
 (defn- interleaved->map [params]
-  (into {} (map (partial apply vector) (partition 2 params))))
+  (into {} (map #(clojure.core/apply vector %) (partition 2 params))))
 
 (defmacro with-context [params & body]
   (let [params (into [] (map ->string params))]
@@ -33,15 +35,30 @@
     'real   (.getRealSort   *context*)
     'bool   (.getBoolSort   *context*)
     'string (.getStringSort *context*)
-    "unknown sort"))
+    'unknown-sort))
 
-(defn make-const [name sort]
-  (.mkConst *context* name sort))
+(defn- make-domain [sorts]
+  (into-array Sort 
+              (if (sequential? sorts)
+                (map get-sort sorts)
+                [(get-sort sorts)])))
 
-(defmacro with-vars [decls & body]
+(defn make-func-decl [name domain range]
+  (.mkFuncDecl *context* name (make-domain domain) (get-sort range)))
+
+(defn make-decl [name sort]
+  (if (sequential? sort)
+    (condp clojure.core/= (first sort)
+      'func (make-func-decl name (second sort) (third sort)))
+    (.mkConst *context* name (get-sort sort))))
+
+(defn flat-vec [arg]
+  (into [] (reduce concat arg)))
+
+(defmacro with-decls [decls & body]
   (let [decls 
-        (into [] (reduce concat (for [[sort name] (partition 2 decls)]
-                                  [name `(make-const ~(->string name) (get-sort '~sort))] )))]
+         (flat-vec (for [[sort name] (partition 2 decls)]
+                     [name `(make-decl ~(->string name) '~sort)] ))]
     `(let ~decls ~@body)))
 
 (defn satisfiable? [status]
@@ -74,14 +91,14 @@
   ([identifier size]
    (.mkBVConst *context* identifier size)))
 
-(defn- sequence? [thing]
-  (or (list? thing) (vector? thing)))
-
 (defn declare-list-type [name & types])
 
+;;;; Function Application
 
+(defn apply [func & args]
+  (.mkApp *context* func (into-array Expr args)))
 
-;; Arithmetic expressions
+;;;; Arithmetic expressions
 
 (defn + [& arithmetic-expressions]
   (.mkAdd *context* (into-array ArithExpr arithmetic-expressions)))
