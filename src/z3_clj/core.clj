@@ -1,40 +1,17 @@
 (ns z3-clj.core
-  (:refer-clojure :exclude [+ = >= int])
   (:import [com.microsoft.z3 Version Context Expr ArithExpr BoolExpr Sort
             Status])
-  (:require [clojure.reflect :as r])
-  (:use [clojure.pprint :only [pprint print-table]]))
-
-(def ^:dynamic *context* nil)
-
-(defn- third [seqable] (nth seqable 2))
-
-(defn context [& args] 
-  (Context. (into {} (partition 2 args))))
-
-(defn- ->string [thing]
-  (cond
-   (symbol? thing)  (name thing)
-   (keyword? thing) (name thing)
-   :else            (str thing)))
-
-(defn- interleaved->map [params]
-  (into {} (map #(clojure.core/apply vector %) (partition 2 params))))
-
-(defmacro with-context [params & body]
-  (let [params (into [] (map ->string params))]
-    `(let [new-context# (Context. ~(interleaved->map params))
-           result#      (binding [*context* new-context#] ~@body)
-           result#      (if (sequential? result#) (doall result#) result#)]
-           (.close new-context#)
-           result#)))
+  (:require [clojure.reflect :as r]
+            [z3-clj.utils :refer :all])
+  (:use [clojure.pprint :only [pprint print-table]]
+        [z3-clj.context :only [*context*] ]))
 
 (defn get-sort [arg]
-  (condp clojure.core/= arg
-    'int    (.getIntSort    *context*)
-    'real   (.getRealSort   *context*)
-    'bool   (.getBoolSort   *context*)
-    'string (.getStringSort *context*)
+  (condp = arg
+    'Int    (.getIntSort    *context*)
+    'Real   (.getRealSort   *context*)
+    'Bool   (.getBoolSort   *context*)
+    'String (.getStringSort *context*)
     'unknown-sort))
 
 (defn- make-domain [sorts]
@@ -48,9 +25,10 @@
 
 (defn make-decl [name sort]
   (if (sequential? sort)
-    (condp clojure.core/= (first sort)
-      'func (make-func-decl name (second sort) (third sort)))
-    (.mkConst *context* name (get-sort sort))))
+    (condp = (first sort)
+      'Func (make-func-decl name (second sort) (third sort)))
+    (do
+      (.mkConst *context* name (get-sort sort)))))
 
 (defn flat-vec [arg]
   (into [] (reduce concat arg)))
@@ -62,28 +40,28 @@
     `(let ~decls ~@body)))
 
 (defn satisfiable? [status]
-  (clojure.core/= status Status/SATISFIABLE))
+  (= status Status/SATISFIABLE))
 
 (defn unsatisfiable? [status]
-  (clojure.core/= status Status/UNSATISFIABLE))
+  (= status Status/UNSATISFIABLE))
 
 (defn unknown? [status]
-  (clojure.core/= status Status/UNKNOWN))
+  (= status Status/UNKNOWN))
 ;; TODO: Handle the creation of new Sorts
 
 ;; constants and values
 
-(defn bool [identifier-or-value]
+(defn Bool [identifier-or-value]
   (if (string? identifier-or-value)
     (.mkBoolConst *context* identifier-or-value)
     (.mkBool      *context* identifier-or-value)))
 
-(defn real [identifier-or-value]
+(defn Real [identifier-or-value]
   (if (string? identifier-or-value)
     (.mkRealConst *context* identifier-or-value)
     (.mkReal      *context* identifier-or-value)))
 
-(defn int 
+(defn Int 
   ([identifier-or-value]
    (if (string? identifier-or-value)
      (.mkIntConst *context* identifier-or-value)
@@ -95,64 +73,61 @@
 
 ;;;; Function Application
 
-(defn apply [func & args]
+(defn Apply [func & args]
   (.mkApp *context* func (into-array Expr args)))
 
 ;;;; Arithmetic expressions
 
-(defn + [& arithmetic-expressions]
+(defn Plus [& arithmetic-expressions]
   (.mkAdd *context* (into-array ArithExpr arithmetic-expressions)))
 
-(defn - [& args]
+(defn Minus [& args]
   (println "found" (count args) "arguments")
-  (if (clojure.core/= 1 (count args)) 
-    (.mkUnaryMinux *context* (first args))
+  (if (= 1 (count args)) 
+    (.mkUnaryMinus *context* (first args))
     (.mkSub *context* (into-array ArithExpr args))))
 
-(defn - [& arithmetic-expressions]
-  (.mkSub *context* (into-array ArithExpr arithmetic-expressions)))
-
-(defn * [& arithmetic-expressions]
+(defn Product [& arithmetic-expressions]
   (.mkMul *context* (into-array ArithExpr arithmetic-expressions)))
 
-(defn / [lhs rhs]
+(defn Divide [lhs rhs]
   (.mkDiv *context* lhs rhs))
 
 ;; Boolean expressions
-(defn = [lhs rhs]
+(defn EQ [lhs rhs]
   (.mkEq *context* lhs rhs))
 
-(defn < [lhs rhs]
+(defn LT [lhs rhs]
   (.mkLt *context* lhs rhs))
 
-(defn <= [lhs rhs]
+(defn LE [lhs rhs]
   (.mkLe *context* lhs rhs))
 
-(defn > [lhs rhs]
+(defn GT [lhs rhs]
   (.mkGt *context* lhs rhs))
 
-(defn >= [lhs rhs]
+(defn GE [lhs rhs]
   (.mkGe *context* lhs rhs))
 
-(defn and [& boolean-expressions]
+(defn AND [& boolean-expressions]
   (.mkAnd *context* (into-array BoolExpr boolean-expressions)))
 
-(defn or [& boolean-expressions]
+(defn OR [& boolean-expressions]
   (.mkOr *context* (into-array BoolExpr boolean-expressions)))
 
-(defn xor [& boolean-expressions]
+(defn XOR [& boolean-expressions]
   (.mkXor *context* (into-array BoolExpr boolean-expressions)))
 
-(defn not [boolean-expression]
+(defn NOT [boolean-expression]
   (.mkNot *context* boolean-expression))
 
-(defn ite [lhs rhs]
+(defn ITE [lhs rhs]
   (.mkITE *context* lhs rhs))
 
-(defn iff [lhs rhs]
+(defn IFF [lhs rhs]
   (.mkIff *context* lhs rhs))
 
-(defn -> [lhs rhs]
+(defn Implies [lhs rhs]
   (.mkImplies *context* lhs rhs))
 
 (defn check-sat [& constraints]

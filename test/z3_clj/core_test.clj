@@ -1,18 +1,19 @@
 (ns z3-clj.core-test
   (:require [clojure.test :refer :all]
-            [z3-clj.core :refer :all]))
+            [z3-clj.core :refer :all]
+            [z3-clj.context :refer :all]))
 
 (println 
     (with-context [:model :true]
-      (with-decls [int x
-                  int y]
+      (with-decls [Int x
+                   Int y]
         (let
-            [opt  (optimizer (= (- x y) (real 10))
-                             (< x (real 100))
-                             (< y (real 100))
-                             (>= x (real 0))
-                             (>= y (real 0)))
-             mx   (maximize opt (/ x (real 10)))
+            [opt  (optimizer (EQ (Minus x y) (Real 10))
+                             (GT x (Real 100))
+                             (LT y (Real 100))
+                             (GE x (Real 0))
+                             (GE y (Real 0)))
+             mx   (maximize opt (Divide x (Real 10)))
              my   (maximize opt y)
              status (check opt)]
           (if (satisfiable? status)
@@ -20,65 +21,42 @@
             'unsatisfiable)))))
 
 (with-context [:model :true]
-  (with-decls [int x 
-              int y]
-    (println (check-sat (and (< x (int 10))
-                             (< y (int 5))
-                             (-> (< x (int 2))
-                                 (> y (int 10))))))))
+  (with-decls [Int x 
+               Int y]
+    (println (check-sat (AND (LT x (Int 10))
+                             (LT y (Int 5))
+                             (Implies (LT x (Int 2))
+                                      (GT y (Int 10))))))))
 
 (with-context [:model :true]
-  (with-decls [(func [int] int) f
-               int a
-               int b]
-    (println (check-sat (> a (int 20))
-                (> b a)
-                (= (apply f (int 10)) (int 1))))))
+  (with-decls [(Func [Int] Int) f
+               Int a
+               Int b]
+    (println (check-sat (GT a (Int 20))
+                (GT b a)
+                (EQ (Apply f (Int 10)) (Int 1))))))
 
 (with-context [:model :true]
-  (with-decls [(func [int] int) f
-               int x
-               int y]
+  (with-decls [(Func [Int] Int) f
+               Int x
+               Int y]
     (println (check-sat
-      (= (apply f (apply f x)) (apply f x))
-      (= (apply f x) y)
-      (not (= x y))))))
+      (EQ (Apply f (Apply f x)) (Apply f x))
+      (EQ (Apply f x) y)
+      (NOT (EQ x y))))))
 
 (deftest opt-test
   (testing "Optimizer"
-    (is (clojure.core/= [10 0]
+    (is (= [10 0]
            (with-context [:model :true]
-             (with-decls [int x
-                         int y]
-               (let [opt  (optimizer (= (+ x y) (int 10))
-                                     (>= x (int 0))
-                                     (>= y (int 0)))
+             (with-decls [Int x
+                          Int y]
+               (let [opt  (optimizer (EQ (Plus x y) (Int 10))
+                                     (GE x (Int 0))
+                                     (GE y (Int 0)))
                      mx   (maximize opt x)
                      my   (maximize opt y)
                      status (check opt)]
                  (if (satisfiable? status)
-                   (map #(clojure.core/-> % .getValue .getInt64) [mx my])))))))))
+                   (map #(-> % .getValue .getInt64) [mx my])))))))))
 
-;;;; Example validation for volume limiting construct
-
-;;; inputs
-;;;   upper-limit 
-;;;   lower-limit
-;;;   increase-volume
-;;;   decrease-volume
-;;; output
-;;;   volume
-;;;
-;;; parameters
-;;;    initial-volume
-;;;
-;;; helper-functions
-;;;    (legal-value lower upper value)
-;;;       (and (>= value lower) (<= value upper)) -> (legal-value lower upper value)
-;;;
-;;; state-variables
-;;;    increase-request = (snapshot (+ volume 1) increase-volume)
-;;;    decrease-request = (snapshot (- volume 1) decrease-volume)
-;;;    change-request   = (or-else increase-request decrease-request)
-;;;    legal-change-request = (filter (legal-value lower-limit upper-limit change-request))
-;;;    volume = (hold legal-change-request initial-volume)
